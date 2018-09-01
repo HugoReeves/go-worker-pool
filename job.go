@@ -1,4 +1,4 @@
-package works
+package wp
 
 // Payload is the thing being executed
 // It is part of the Job and is a subsection

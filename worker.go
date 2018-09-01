@@ -1,4 +1,6 @@
-package works
+package wp
+
+import "fmt"
 
 // worker represents the listening go routine that process jobs
 // The worker registers its job channel into the worker pool
@@ -9,17 +11,17 @@ package works
 // Should never deal with workers (ie. start or stop them)
 
 type worker struct {
-	WorkerPool chan chan Job
-	JobChannel chan Job
-	Quit       chan bool
+	workerPool chan chan Job
+	jobChannel chan Job
+	quit       chan bool
 }
 
 // newWorker creates a new worker registeres witb the parent dispatcher's worker pool
 func (d *Dispatcher) newWorker() worker {
 	return worker{
-		WorkerPool: d.WorkerPool,
-		JobChannel: make(chan Job),
-		Quit:       make(chan bool),
+		workerPool: d.workerPool,
+		jobChannel: make(chan Job),
+		quit:       make(chan bool),
 	}
 }
 
@@ -30,20 +32,19 @@ func (w worker) start() {
 	go func() {
 		for {
 			// register the current worker into the worker queue.
-			w.WorkerPool <- w.JobChannel
+			w.workerPool <- w.jobChannel
 
 			select {
 			// Wait for a job to be available on the job channel
 			// Then execute the job
-			case job := <-w.JobChannel:
-				err := job.Payload.Exec()
-
-				if err != nil {
+			case job := <-w.jobChannel:
+				if err := job.Payload.Exec(); err != nil {
 					job.Payload.OnError(err)
 				}
 
-			case <-w.Quit:
+			case <-w.quit:
 				// we have received a signal to stop
+				fmt.Println("Closing worker")
 				return
 			}
 		}
@@ -53,6 +54,6 @@ func (w worker) start() {
 // Stop signals the worker to stop listening for work requests.
 func (w worker) stop() {
 	go func() {
-		w.Quit <- true
+		w.quit <- true
 	}()
 }
